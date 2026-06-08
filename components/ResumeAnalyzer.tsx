@@ -3,26 +3,42 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, Bot, FileText, RotateCcw, SendHorizontal, ShieldCheck } from "lucide-react";
 import { AGENT_LOADING_MESSAGES, DEMO_ANALYSIS, DEMO_ANALYSIS_NOTICE } from "@/lib/constants";
-import type { AnalysisResult } from "@/lib/types";
-import ResultsDashboard from "./ResultsDashboard";
-import SkeletonCards from "./SkeletonCards";
+import ResultsDashboard, { type DashboardAnalysisResult } from "./ResultsDashboard";
 
 const MIN_WORDS = 50;
 const MAX_WORDS = 2000;
 
 function countWords(value: string) {
-  return value.trim() ? value.trim().split(/\s+/).length : 0;
+  return value.trim() === "" ? 0 : value.trim().split(/\s+/).length;
 }
 
 function isStringArray(value: unknown) {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
 }
 
-function isAnalysisResult(value: unknown): value is AnalysisResult {
+function hasRoadmapShape(value: unknown) {
+  if (isStringArray(value)) return true;
   if (!value || typeof value !== "object") return false;
 
-  const source = value as Partial<AnalysisResult>;
-  const roadmap = source.roadmap30Days;
+  const roadmap = value as {
+    week1?: unknown;
+    week2?: unknown;
+    week3?: unknown;
+    week4?: unknown;
+  };
+
+  return (
+    isStringArray(roadmap.week1) &&
+    isStringArray(roadmap.week2) &&
+    isStringArray(roadmap.week3) &&
+    isStringArray(roadmap.week4)
+  );
+}
+
+function isAnalysisResult(value: unknown): value is DashboardAnalysisResult {
+  if (!value || typeof value !== "object") return false;
+
+  const source = value as Partial<DashboardAnalysisResult>;
 
   return (
     typeof source.resumeScore === "number" &&
@@ -32,11 +48,7 @@ function isAnalysisResult(value: unknown): value is AnalysisResult {
     isStringArray(source.missingSkills) &&
     isStringArray(source.recommendedRoles) &&
     isStringArray(source.suggestedProjects) &&
-    Boolean(roadmap) &&
-    isStringArray(roadmap?.week1) &&
-    isStringArray(roadmap?.week2) &&
-    isStringArray(roadmap?.week3) &&
-    isStringArray(roadmap?.week4) &&
+    hasRoadmapShape(source.roadmap30Days) &&
     typeof source.coverLetter === "string" &&
     isStringArray(source.finalChecklist)
   );
@@ -57,11 +69,10 @@ function isRateLimitErrorMessage(message: string) {
 export default function ResumeAnalyzer() {
   const [resumeText, setResumeText] = useState("");
   const [targetRole, setTargetRole] = useState("");
-  const [wordCount, setWordCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [results, setResults] = useState<AnalysisResult | null>(null);
-  const [currentAgentMessage, setCurrentAgentMessage] = useState(AGENT_LOADING_MESSAGES[0]);
+  const [results, setResults] = useState<DashboardAnalysisResult | null>(null);
+  const [agentMsgIndex, setAgentMsgIndex] = useState(0);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [showDemoButton, setShowDemoButton] = useState(false);
   const [isDemoAnalysis, setIsDemoAnalysis] = useState(false);
@@ -69,29 +80,27 @@ export default function ResumeAnalyzer() {
   const resultsRef = useRef<HTMLDivElement | null>(null);
   const analyzerRef = useRef<HTMLElement | null>(null);
   const analyzeDisabled = loading || cooldownRemaining > 0;
+  const agentMessages = AGENT_LOADING_MESSAGES;
 
-  const wordCountTone = useMemo(() => {
-    if (wordCount === 0) return "text-slate-400";
-    if (wordCount < MIN_WORDS || wordCount > MAX_WORDS) return "text-[#E24B4A]";
-    if (wordCount >= MIN_WORDS && wordCount <= MAX_WORDS) return "text-[#1D9E75]";
-    return "text-slate-400";
+  const wordCount = useMemo(() => countWords(resumeText), [resumeText]);
+  const wordCountColor = useMemo(() => {
+    if (wordCount === 0) return "text-white/30";
+    if (wordCount < MIN_WORDS || wordCount > MAX_WORDS) return "text-red-400";
+    return "text-emerald-400";
   }, [wordCount]);
 
   useEffect(() => {
     if (!loading) {
-      setCurrentAgentMessage(AGENT_LOADING_MESSAGES[0]);
+      setAgentMsgIndex(0);
       return;
     }
 
-    let index = 0;
-    setCurrentAgentMessage(AGENT_LOADING_MESSAGES[index]);
     const interval = window.setInterval(() => {
-      index = (index + 1) % AGENT_LOADING_MESSAGES.length;
-      setCurrentAgentMessage(AGENT_LOADING_MESSAGES[index]);
+      setAgentMsgIndex((prev) => (prev + 1) % agentMessages.length);
     }, 2000);
 
     return () => window.clearInterval(interval);
-  }, [loading]);
+  }, [agentMessages.length, loading]);
 
   useEffect(() => {
     if (cooldownRemaining <= 0) return;
@@ -178,15 +187,9 @@ export default function ResumeAnalyzer() {
     }
   }
 
-  function handleResumeChange(value: string) {
-    setResumeText(value);
-    setWordCount(countWords(value));
-  }
-
   function resetAnalyzer() {
     setResumeText("");
     setTargetRole("");
-    setWordCount(0);
     setError(null);
     setResults(null);
     setShowDemoButton(false);
@@ -215,20 +218,18 @@ export default function ResumeAnalyzer() {
             create a practical improvement plan.
           </p>
         </div>
-        <div className="glass-card rounded-lg p-4 text-sm text-slate-300">
+        <div className="glass-card p-4 text-sm text-slate-300">
           <span className="surface-line" />
           <div className="flex items-center gap-3">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-emerald-300/20 bg-emerald-300/10">
               <ShieldCheck className="size-5 text-emerald-200" aria-hidden="true" />
             </span>
-            <p>
-              API calls stay server-side. Your key never appears in frontend code.
-            </p>
+            <p>API calls stay server-side. Your key never appears in frontend code.</p>
           </div>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="glass-card overflow-hidden rounded-lg p-5 sm:p-7">
+      <form onSubmit={handleSubmit} className="glass-card overflow-hidden p-5 sm:p-7">
         <span className="surface-line" />
         <div className="mb-6 flex flex-col gap-3 border-b border-white/10 pb-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
@@ -254,14 +255,16 @@ export default function ResumeAnalyzer() {
             </span>
             <textarea
               value={resumeText}
-              onChange={(event) => handleResumeChange(event.target.value)}
+              onChange={(event) => setResumeText(event.target.value)}
               placeholder="Paste your resume text here..."
-              className="premium-field mt-3 min-h-[220px] resize-y px-4 py-4 leading-6"
+              className="premium-field mt-3 min-h-[220px] resize-y px-4 py-4 leading-6 transition-all duration-300 focus:border-blue-400/50 focus:outline-none focus:ring-2 focus:ring-blue-400/10"
             />
             <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-xs text-slate-500">Recommended: detailed projects, skills, and education.</span>
-              <span className={`text-xs ${wordCountTone}`}>
+              <span className={`text-xs ${wordCountColor} transition-colors duration-300`}>
                 {wordCount} / {MAX_WORDS} words
+                {wordCount < MIN_WORDS && wordCount > 0 ? " - too short" : ""}
+                {wordCount > MAX_WORDS ? " - too long" : ""}
               </span>
             </div>
           </label>
@@ -273,7 +276,7 @@ export default function ResumeAnalyzer() {
                 value={targetRole}
                 onChange={(event) => setTargetRole(event.target.value)}
                 placeholder="e.g. AI Intern, Full Stack Developer, Data Analyst"
-                className="premium-field mt-3 min-h-12 px-4"
+                className="premium-field mt-3 min-h-12 px-4 transition-all duration-300 focus:border-blue-400/50 focus:outline-none focus:ring-2 focus:ring-blue-400/10"
               />
             </label>
 
@@ -333,18 +336,37 @@ export default function ResumeAnalyzer() {
       </form>
 
       {loading ? (
-        <div className="mt-8">
-          <div className="glass-card flex items-center gap-3 rounded-lg p-4">
-            <span className="surface-line" />
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-cyan/20 bg-cyan/10">
-              <span className="ai-spinner" aria-hidden="true" />
-            </span>
-            <p key={currentAgentMessage} className="animate-fade-up text-sm font-medium text-slate-200">
-              {currentAgentMessage}
-            </p>
+        <>
+          <div className="mt-4 space-y-2 text-center">
+            <div className="flex items-center justify-center gap-2">
+              <div
+                className="h-4 w-4 rounded-full border-2 border-blue-400/30 border-t-blue-400"
+                style={{ animation: "spin 0.8s linear infinite" }}
+                aria-hidden="true"
+              />
+              <p
+                className="text-sm text-blue-300 transition-all duration-500"
+                key={agentMsgIndex}
+                style={{ animation: "cardReveal 0.4s ease forwards" }}
+              >
+                {agentMessages[agentMsgIndex]}
+              </p>
+            </div>
           </div>
-          <SkeletonCards />
-        </div>
+
+          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div
+                key={index}
+                className="skeleton"
+                style={{
+                  height: 120,
+                  animationDelay: `${index * 0.2}s`
+                }}
+              />
+            ))}
+          </div>
+        </>
       ) : null}
 
       <div ref={resultsRef} className="scroll-mt-24">

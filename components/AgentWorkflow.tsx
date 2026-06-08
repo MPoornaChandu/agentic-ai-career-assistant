@@ -3,7 +3,10 @@ import { ArrowDown, Bot } from "lucide-react";
 
 export default function AgentWorkflow() {
   return (
-    <section id="agents" className="section-shell section-reveal scroll-mt-24 bg-[linear-gradient(90deg,transparent,rgba(96,165,250,0.04),rgba(139,92,246,0.04),transparent)]">
+    <section
+      id="agents"
+      className="section-shell section-reveal scroll-hidden scroll-mt-24 bg-[linear-gradient(90deg,transparent,rgba(96,165,250,0.04),rgba(139,92,246,0.04),transparent)]"
+    >
       <div className="mx-auto mb-12 max-w-3xl text-center">
         <span className="section-kicker">Agents</span>
         <h2 className="section-title">
@@ -15,11 +18,14 @@ export default function AgentWorkflow() {
       </div>
 
       <div className="relative flex flex-col items-stretch gap-3 lg:flex-row lg:items-center">
-        <div className="pointer-events-none absolute left-0 right-0 top-1/2 hidden h-px bg-gradient-to-r from-transparent via-cyan/30 to-transparent lg:block" aria-hidden="true" />
+        <div
+          className="pointer-events-none absolute left-0 right-0 top-1/2 hidden h-px bg-gradient-to-r from-transparent via-cyan/30 to-transparent lg:block"
+          aria-hidden="true"
+        />
         {AGENTS.map((agent, index) => (
           <div key={agent.name} className="contents">
             <article
-              className="glass-card glass-hover reveal-card group z-10 min-h-44 flex-1 rounded-lg p-5"
+              className="glass-card glass-hover reveal-card group z-10 min-h-44 flex-1 p-5"
               style={{ "--reveal-delay": `${index * 80}ms` } as React.CSSProperties}
             >
               <span className="surface-line opacity-60 transition group-hover:opacity-100" />
@@ -27,20 +33,26 @@ export default function AgentWorkflow() {
                 <span className="flex size-11 items-center justify-center rounded-lg border border-accent/20 bg-accent/15 shadow-[0_0_26px_rgba(139,92,246,0.08)]">
                   <Bot className="size-5 text-violet-200" aria-hidden="true" />
                 </span>
-                <span className="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-xs font-medium text-emerald-200">
-                  <span className="active-dot" aria-hidden="true" />
+                <span className="flex items-center gap-1.5 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-2.5 py-1 text-xs font-medium text-emerald-400">
+                  <span className="pulse-dot" />
                   Active
                 </span>
               </div>
               <h3 className="text-lg font-semibold text-white">{agent.name}</h3>
               <p className="mt-2 text-sm leading-6 text-slate-300">{agent.purpose}</p>
             </article>
+
             {index < AGENTS.length - 1 ? (
               <div className="z-10 flex items-center justify-center text-cyan/70">
                 <ArrowDown className="size-5 lg:hidden" aria-hidden="true" />
-                <span className="flow-connector hidden rounded-full border border-cyan/20 bg-night px-3 py-2 text-base font-semibold lg:block">
-                  <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">→</span>
-                </span>
+                <div className="mx-1 hidden items-center justify-center lg:flex" aria-hidden="true">
+                  <span
+                    className="inline-block text-xl font-bold text-blue-400"
+                    style={{ animation: "flowPulse 2s ease-in-out infinite" }}
+                  >
+                    {"\u2192"}
+                  </span>
+                </div>
               </div>
             ) : null}
           </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   BadgeCheck,
@@ -19,8 +19,14 @@ import {
 } from "lucide-react";
 import type { AnalysisResult } from "@/lib/types";
 
+type RoadmapLike = AnalysisResult["roadmap30Days"] | string[];
+
+export type DashboardAnalysisResult = Omit<AnalysisResult, "roadmap30Days"> & {
+  roadmap30Days: RoadmapLike;
+};
+
 type ResultsDashboardProps = {
-  results: AnalysisResult;
+  results: DashboardAnalysisResult;
   onReset: () => void;
   resetIcon?: ReactNode;
   notice?: string;
@@ -31,132 +37,105 @@ type Toast = {
   type: "success" | "error";
 };
 
-const radius = 54;
-const circumference = 2 * Math.PI * radius;
-const confettiColors = ["#60A5FA", "#8B5CF6", "#22D3EE", "#1D9E75", "#EF9F27"];
+const cardDelays = [0, 80, 160, 240, 320, 400, 480, 560, 640, 720];
 
 function clampScore(score: number) {
   if (!Number.isFinite(score)) return 0;
   return Math.min(100, Math.max(0, Math.round(score)));
 }
 
-function useCountUp(target: number, duration = 1500) {
-  const [value, setValue] = useState(0);
-
-  useEffect(() => {
-    let animationFrame = 0;
-    const start = performance.now();
-
-    function tick(now: number) {
-      const progress = Math.min((now - start) / duration, 1);
-      setValue(Math.round(target * progress));
-
-      if (progress < 1) {
-        animationFrame = requestAnimationFrame(tick);
-      }
-    }
-
-    setValue(0);
-    animationFrame = requestAnimationFrame(tick);
-
-    return () => cancelAnimationFrame(animationFrame);
-  }, [duration, target]);
-
-  return value;
-}
-
 function ToastView({ toast }: { toast: Toast | null }) {
   if (!toast) return null;
 
-  const isSuccess = toast.type === "success";
-
   return (
-    <div
-      role="status"
-      className={`toast-enter fixed right-4 top-24 z-[60] flex max-w-sm items-center gap-3 rounded-2xl border px-4 py-3 text-sm shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:right-8 ${
-        isSuccess
-          ? "border-emerald-300/25 bg-emerald-300/[0.12] text-emerald-100"
-          : "border-red-300/25 bg-red-300/[0.12] text-red-100"
-      }`}
-    >
-      {isSuccess ? <CheckCircle2 className="size-5" aria-hidden="true" /> : <AlertTriangle className="size-5" aria-hidden="true" />}
-      {toast.message}
+    <div className="toast-wrap" role="status">
+      <div className={`toast ${toast.type === "success" ? "toast-success" : "toast-error"}`}>
+        {toast.type === "success" ? (
+          <CheckCircle2 className="size-4" aria-hidden="true" />
+        ) : (
+          <AlertTriangle className="size-4" aria-hidden="true" />
+        )}
+        {toast.message}
+      </div>
     </div>
   );
 }
 
-function ScoreCard({ score }: { score: number }) {
-  const safeScore = clampScore(score);
-  const count = useCountUp(safeScore);
-  const [ringReady, setRingReady] = useState(false);
-  const offset = circumference - (safeScore / 100) * circumference;
-  const tone =
-    safeScore >= 75
-      ? { color: "#1D9E75", label: "Strong", text: "text-emerald-200" }
-      : safeScore >= 50
-        ? { color: "#EF9F27", label: "Needs polish", text: "text-amber-200" }
-        : { color: "#E24B4A", label: "Needs work", text: "text-red-200" };
+function ScoreRing({ score }: { score: number }) {
+  const target = clampScore(score);
+  const [displayScore, setDisplayScore] = useState(0);
+  const radius = 54;
+  const circumference = 2 * Math.PI * radius;
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setRingReady(true), 80);
-    return () => window.clearTimeout(timer);
-  }, [safeScore]);
+    let current = 0;
+    const duration = 1500;
+    const steps = 60;
+    const increment = target / steps;
+    const timer = window.setInterval(() => {
+      current = Math.min(current + increment, target);
+      setDisplayScore(Math.round(current));
+      if (current >= target) window.clearInterval(timer);
+    }, duration / steps);
+
+    return () => window.clearInterval(timer);
+  }, [target]);
+
+  const offset = circumference - (displayScore / 100) * circumference;
+  const color = target >= 75 ? "#1D9E75" : target >= 50 ? "#EF9F27" : "#E24B4A";
+  const label = target >= 75 ? "Strong profile" : target >= 50 ? "Needs improvement" : "Major gaps detected";
 
   return (
-    <article className="glass-card result-reveal relative overflow-hidden rounded-lg p-6">
-      <span className="surface-line" />
-      {safeScore >= 80 ? (
-        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-          {Array.from({ length: 28 }).map((_, index) => (
-            <span
-              key={index}
-              className="score-confetti-piece"
-              style={
-                {
-                  left: `${45 + ((index % 7) - 3) * 4}%`,
-                  top: `${36 + Math.floor(index / 7) * 4}%`,
-                  "--x": `${Math.cos(index) * (46 + (index % 5) * 12)}px`,
-                  "--y": `${Math.sin(index) * (46 + (index % 6) * 10)}px`,
-                  "--d": `${index * 0.025}s`,
-                  "--c": confettiColors[index % confettiColors.length]
-                } as React.CSSProperties
-              }
-            />
-          ))}
-        </div>
-      ) : null}
-
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <p className="text-sm text-slate-400">Resume Score</p>
-          <h3 className="mt-1 text-2xl font-semibold text-white">{tone.label}</h3>
-        </div>
-        <span className="flex size-11 items-center justify-center rounded-lg border border-cyan/20 bg-cyan/10">
-          <Gauge className="size-6 text-cyan" aria-hidden="true" />
-        </span>
-      </div>
-
-      <div className="relative mx-auto size-44">
-        <svg viewBox="0 0 140 140" className="size-full -rotate-90">
-          <circle cx="70" cy="70" r={radius} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="10" />
+    <div className="flex flex-col items-center gap-3">
+      <div className="relative">
+        <svg width="140" height="140" viewBox="0 0 140 140" role="img" aria-label={`Resume score ${target} out of 100`}>
+          <circle cx="70" cy="70" r={radius} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="10" />
           <circle
             cx="70"
             cy="70"
             r={radius}
             fill="none"
-            stroke={tone.color}
-            strokeLinecap="round"
+            stroke={color}
             strokeWidth="10"
             strokeDasharray={circumference}
-            strokeDashoffset={ringReady ? offset : circumference}
-            className="transition-[stroke-dashoffset] duration-[1500ms] ease-out"
+            strokeDashoffset={offset}
+            strokeLinecap="round"
+            transform="rotate(-90 70 70)"
+            style={{
+              transition: "stroke-dashoffset 0.04s linear",
+              filter: `drop-shadow(0 0 8px ${color}60)`
+            }}
           />
+          <text x="70" y="65" textAnchor="middle" fontSize="32" fontWeight="700" fill="#ffffff">
+            {displayScore}
+          </text>
+          <text x="70" y="85" textAnchor="middle" fontSize="13" fill="rgba(255,255,255,0.45)">
+            out of 100
+          </text>
         </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-5xl font-semibold text-white">{count}</span>
-          <span className={`mt-1 text-sm ${tone.text}`}>out of 100</span>
-        </div>
       </div>
+      <p className="text-sm font-medium" style={{ color }}>
+        {label}
+      </p>
+    </div>
+  );
+}
+
+function ScoreCard({ score }: { score: number }) {
+  return (
+    <article className="glass-card card-reveal relative overflow-hidden p-5" style={{ animationDelay: `${cardDelays[0]}ms` }}>
+      <span className="surface-line" />
+      <div id="confetti-container" className="pointer-events-none absolute inset-0 overflow-hidden" />
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <p className="text-sm text-slate-400">Resume Score</p>
+          <h3 className="mt-1 text-lg font-semibold text-white">Profile signal</h3>
+        </div>
+        <span className="flex size-11 items-center justify-center rounded-lg border border-cyan/20 bg-cyan/10">
+          <Gauge className="size-6 text-cyan" aria-hidden="true" />
+        </span>
+      </div>
+      <ScoreRing score={score} />
     </article>
   );
 }
@@ -166,16 +145,19 @@ function TextCard({
   icon,
   children,
   className = "",
-  delay = 0
+  delayIndex
 }: {
   title: string;
   icon: ReactNode;
   children: ReactNode;
   className?: string;
-  delay?: number;
+  delayIndex: number;
 }) {
   return (
-    <article className={`glass-card result-reveal rounded-lg p-6 ${className}`} style={{ animationDelay: `${delay}ms` }}>
+    <article
+      className={`glass-card card-reveal p-5 ${className}`}
+      style={{ animationDelay: `${cardDelays[delayIndex] ?? 0}ms` }}
+    >
       <span className="surface-line opacity-70" />
       <div className="mb-4 flex items-center gap-3">
         <span className="flex size-10 items-center justify-center rounded-lg border border-cyan/20 bg-cyan/10 text-cyan">
@@ -188,90 +170,116 @@ function TextCard({
   );
 }
 
-function ChipList({
-  items,
-  tone = "blue",
-  clickable = false
-}: {
-  items: string[];
-  tone?: "green" | "amber" | "red" | "blue";
-  clickable?: boolean;
-}) {
-  const toneClass = {
-    green: "border-[#1D9E75]/25 bg-[#1D9E75]/[0.12] text-emerald-300",
-    amber: "border-[#EF9F27]/25 bg-[#EF9F27]/[0.12] text-yellow-300",
-    red: "border-[#E24B4A]/25 bg-[#E24B4A]/[0.12] text-red-200",
-    blue: "border-primary/25 bg-primary/[0.12] text-blue-300"
-  }[tone];
-
+function PillList({ items, tone }: { items: string[]; tone: "green" | "amber" | "red" | "blue" | "violet" }) {
   if (!items.length) {
     return <p className="text-sm text-slate-400">No items returned. Try another analysis.</p>;
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
-      {items.map((item) =>
-        clickable ? (
-          <button
-            type="button"
-            key={item}
-            className={`rounded-full border px-3 py-1.5 text-[13px] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition hover:-translate-y-0.5 ${toneClass}`}
-          >
-            {item}
-          </button>
-        ) : (
-          <span key={item} className={`rounded-full border px-3 py-1.5 text-[13px] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ${toneClass}`}>
-            {item}
-          </span>
-        )
-      )}
-    </div>
-  );
-}
-
-function Roadmap({ roadmap }: { roadmap: AnalysisResult["roadmap30Days"] }) {
-  const weeks = [
-    ["Week 1", roadmap.week1, "#60A5FA"],
-    ["Week 2", roadmap.week2, "#8B5CF6"],
-    ["Week 3", roadmap.week3, "#22D3EE"],
-    ["Week 4", roadmap.week4, "#1D9E75"]
-  ] as const;
-
-  return (
-    <div className="grid gap-3 lg:grid-cols-2">
-      {weeks.map(([label, items, color]) => (
-        <div
-          key={label}
-          className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-4"
-          style={{ borderLeft: `3px solid ${color}` }}
-        >
-          <p className="mb-3 font-semibold" style={{ color }}>
-            {label}
-          </p>
-          {items.length ? (
-            <ol className="space-y-2 text-sm leading-6 text-slate-300">
-              {items.map((item, index) => (
-                <li key={item} className="flex gap-2">
-                  <span className="font-semibold" style={{ color }}>
-                    {index + 1}.
-                  </span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <p className="text-sm text-slate-400">No roadmap items returned.</p>
-          )}
-        </div>
+    <div className="flex flex-wrap">
+      {items.map((item, index) => (
+        <span key={`${item}-${index}`} className={`pill pill-${tone}`}>
+          {item}
+        </span>
       ))}
     </div>
   );
 }
 
+function WeekList({ label, cls, titleCls, items }: { label: string; cls: string; titleCls: string; items: string[] }) {
+  return (
+    <div className={`week-block ${cls}`}>
+      <p className={titleCls}>{label}</p>
+      {items.length ? (
+        <ol className="list-inside list-decimal space-y-1">
+          {items.map((task, index) => (
+            <li key={`${task}-${index}`} className="text-sm text-white/75">
+              {task}
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="text-sm text-white/45">No roadmap items returned.</p>
+      )}
+    </div>
+  );
+}
+
+function Roadmap({ roadmap }: { roadmap: RoadmapLike }) {
+  const isWeekly = roadmap && typeof roadmap === "object" && !Array.isArray(roadmap);
+  const roadmapObject = isWeekly ? (roadmap as Partial<AnalysisResult["roadmap30Days"]>) : null;
+
+  const weeks = roadmapObject
+    ? [
+        {
+          label: "Week 1",
+          key: "week1",
+          cls: "week-block-1",
+          titleCls: "week-title-1",
+          items: Array.isArray(roadmapObject.week1) ? roadmapObject.week1 : []
+        },
+        {
+          label: "Week 2",
+          key: "week2",
+          cls: "week-block-2",
+          titleCls: "week-title-2",
+          items: Array.isArray(roadmapObject.week2) ? roadmapObject.week2 : []
+        },
+        {
+          label: "Week 3",
+          key: "week3",
+          cls: "week-block-3",
+          titleCls: "week-title-3",
+          items: Array.isArray(roadmapObject.week3) ? roadmapObject.week3 : []
+        },
+        {
+          label: "Week 4",
+          key: "week4",
+          cls: "week-block-4",
+          titleCls: "week-title-4",
+          items: Array.isArray(roadmapObject.week4) ? roadmapObject.week4 : []
+        }
+      ]
+    : null;
+
+  if (weeks) {
+    return (
+      <div>
+        {weeks.map((week) => (
+          <WeekList key={week.key} label={week.label} cls={week.cls} titleCls={week.titleCls} items={week.items} />
+        ))}
+      </div>
+    );
+  }
+
+  const flatItems = Array.isArray(roadmap) ? roadmap : [];
+  const chunkSize = Math.ceil(flatItems.length / 4) || 1;
+  const clsList = ["week-block-1", "week-block-2", "week-block-3", "week-block-4"];
+  const titleClsList = ["week-title-1", "week-title-2", "week-title-3", "week-title-4"];
+
+  return (
+    <div>
+      {[0, 1, 2, 3].map((weekIndex) => {
+        const items = flatItems.slice(weekIndex * chunkSize, (weekIndex + 1) * chunkSize);
+        return items.length > 0 ? (
+          <WeekList
+            key={weekIndex}
+            label={`Week ${weekIndex + 1}`}
+            cls={clsList[weekIndex]}
+            titleCls={titleClsList[weekIndex]}
+            items={items}
+          />
+        ) : null;
+      })}
+      {!flatItems.length ? <p className="text-sm text-slate-400">No roadmap items returned.</p> : null}
+    </div>
+  );
+}
+
 export default function ResultsDashboard({ results, onReset, resetIcon, notice }: ResultsDashboardProps) {
-  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
-  const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
+  const [checkedItems, setCheckedItems] = useState<boolean[]>([]);
 
   const projects = useMemo(
     () => results.suggestedProjects.filter((project) => project.trim().length > 0),
@@ -279,41 +287,75 @@ export default function ResultsDashboard({ results, onReset, resetIcon, notice }
   );
 
   useEffect(() => {
-    setCheckedItems(new Set());
+    setCheckedItems(new Array(results.finalChecklist.length).fill(false));
   }, [results.finalChecklist]);
+
+  useEffect(() => {
+    const safeScore = clampScore(results.resumeScore);
+    if (safeScore < 80) return;
+
+    const container = document.getElementById("confetti-container");
+    if (!container) return;
+
+    container.innerHTML = "";
+    const colors = ["#60A5FA", "#8B5CF6", "#22D3EE", "#1D9E75", "#FCD34D"];
+    for (let index = 0; index < 30; index += 1) {
+      const dot = document.createElement("div");
+      dot.style.cssText = `
+        position: absolute;
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        background: ${colors[index % colors.length]};
+        left: ${Math.random() * 100}%;
+        top: 50%;
+        pointer-events: none;
+        animation: confettiFly ${0.8 + Math.random() * 0.8}s ease forwards;
+        animation-delay: ${Math.random() * 0.4}s;
+      `;
+      container.appendChild(dot);
+    }
+
+    const timer = window.setTimeout(() => {
+      container.innerHTML = "";
+    }, 2000);
+
+    return () => {
+      window.clearTimeout(timer);
+      container.innerHTML = "";
+    };
+  }, [results.resumeScore]);
 
   useEffect(() => {
     if (!toast) return;
 
-    const timer = window.setTimeout(() => setToast(null), 3000);
+    const timer = window.setTimeout(() => setToast(null), 2500);
     return () => window.clearTimeout(timer);
   }, [toast]);
 
-  function toggleChecklistItem(item: string) {
-    setCheckedItems((current) => {
-      const next = new Set(current);
-      if (next.has(item)) {
-        next.delete(item);
-      } else {
-        next.add(item);
-      }
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(results.coverLetter);
+      setCopied(true);
+      setToast({ type: "success", message: "Copied to clipboard!" });
+      window.setTimeout(() => setCopied(false), 2500);
+    } catch {
+      setToast({ type: "error", message: "Copy failed. Please try again." });
+    }
+  }
+
+  function toggleItem(index: number) {
+    setCheckedItems((prev) => {
+      const next = [...prev];
+      next[index] = !next[index];
       return next;
     });
   }
 
-  async function copyCoverLetter() {
-    if (!results.coverLetter) return;
-
-    try {
-      await navigator.clipboard.writeText(results.coverLetter);
-      setCopyStatus("copied");
-      setToast({ type: "success", message: "Copied to clipboard!" });
-      window.setTimeout(() => setCopyStatus("idle"), 2000);
-    } catch {
-      setCopyStatus("failed");
-      setToast({ type: "error", message: "Copy failed. Please try again." });
-      window.setTimeout(() => setCopyStatus("idle"), 2000);
-    }
+  function handleReset() {
+    onReset();
+    window.setTimeout(() => {
+      document.getElementById("analyzer")?.scrollIntoView({ behavior: "smooth" });
+    }, 0);
   }
 
   return (
@@ -334,7 +376,7 @@ export default function ResultsDashboard({ results, onReset, resetIcon, notice }
       </div>
 
       {notice ? (
-        <div className="glass-card mb-5 rounded-lg border-amber-300/20 bg-amber-300/10 p-4 text-sm font-medium text-amber-100">
+        <div className="glass-card mb-5 border-amber-300/20 bg-amber-300/10 p-4 text-sm font-medium text-amber-100">
           <span className="surface-line opacity-60" />
           {notice}
         </div>
@@ -347,104 +389,109 @@ export default function ResultsDashboard({ results, onReset, resetIcon, notice }
           title="AI Summary"
           icon={<Sparkles className="size-5" aria-hidden="true" />}
           className="lg:col-span-2"
-          delay={80}
+          delayIndex={1}
         >
           <p className="text-sm leading-7 text-slate-300">{results.summary}</p>
         </TextCard>
 
-        <TextCard title="Strengths" icon={<CheckCircle2 className="size-5" aria-hidden="true" />} delay={160}>
-          <ChipList items={results.strengths} tone="green" />
+        <TextCard title="Strengths" icon={<CheckCircle2 className="size-5" aria-hidden="true" />} delayIndex={2}>
+          <PillList items={results.strengths} tone="green" />
         </TextCard>
 
-        <TextCard title="Weaknesses" icon={<TriangleAlert className="size-5" aria-hidden="true" />} delay={240}>
-          <ChipList items={results.weaknesses} tone="amber" />
+        <TextCard title="Weaknesses" icon={<TriangleAlert className="size-5" aria-hidden="true" />} delayIndex={3}>
+          <PillList items={results.weaknesses} tone="amber" />
         </TextCard>
 
-        <TextCard title="Missing Skills" icon={<XCircle className="size-5" aria-hidden="true" />} delay={320}>
-          <ChipList items={results.missingSkills} tone="red" />
+        <TextCard title="Missing Skills" icon={<XCircle className="size-5" aria-hidden="true" />} delayIndex={4}>
+          <PillList items={results.missingSkills} tone="red" />
         </TextCard>
 
         <TextCard
           title="Recommended Internship Roles"
           icon={<Target className="size-5" aria-hidden="true" />}
           className="lg:col-span-3"
-          delay={400}
+          delayIndex={5}
         >
-          <ChipList items={results.recommendedRoles} tone="blue" clickable />
+          <PillList items={results.recommendedRoles} tone="blue" />
         </TextCard>
 
-        <TextCard title="Suggested Projects" icon={<Lightbulb className="size-5" aria-hidden="true" />} className="lg:col-span-3" delay={480}>
-          {projects.length ? (
-            <ol className="grid gap-3 md:grid-cols-2">
-              {projects.map((project, index) => (
-                <li key={project} className="rounded-lg border border-white/10 bg-white/[0.045] p-4 text-sm leading-6 text-slate-300">
-                  <span className="mr-2 font-semibold text-cyan">{index + 1}.</span>
-                  {project}
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <p className="text-sm text-slate-400">No project suggestions returned.</p>
-          )}
+        <TextCard
+          title="Suggested Projects"
+          icon={<Lightbulb className="size-5" aria-hidden="true" />}
+          className="lg:col-span-3"
+          delayIndex={6}
+        >
+          <PillList items={projects} tone="violet" />
         </TextCard>
 
-        <TextCard title="30-Day Learning Roadmap" icon={<Route className="size-5" aria-hidden="true" />} className="lg:col-span-3" delay={560}>
+        <TextCard
+          title="30-Day Learning Roadmap"
+          icon={<Route className="size-5" aria-hidden="true" />}
+          className="lg:col-span-3"
+          delayIndex={7}
+        >
           <Roadmap roadmap={results.roadmap30Days} />
         </TextCard>
 
-        <TextCard title="Cover Letter" icon={<Mail className="size-5" aria-hidden="true" />} className="lg:col-span-2" delay={640}>
-          <div className="rounded-lg border border-white/10 bg-white/[0.045] p-4">
-            <div className="mb-3 flex justify-end">
-              <button
-                type="button"
-                onClick={copyCoverLetter}
-                disabled={!results.coverLetter}
-                className={`secondary-button min-h-9 px-3 py-2 text-xs ${
-                  copyStatus === "copied" ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-100" : ""
-                }`}
-              >
-                {copyStatus === "copied" ? (
-                  <BadgeCheck className="size-4" aria-hidden="true" />
-                ) : (
-                  <Copy className="size-4" aria-hidden="true" />
-                )}
-                {copyStatus === "copied" ? "Copied! ✓" : "Copy to Clipboard"}
-              </button>
+        <article className="glass-card card-reveal relative p-5 lg:col-span-2" style={{ animationDelay: `${cardDelays[8]}ms` }}>
+          <span className="surface-line opacity-70" />
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="flex size-10 items-center justify-center rounded-lg border border-cyan/20 bg-cyan/10 text-cyan">
+                <Mail className="size-5" aria-hidden="true" />
+              </span>
+              <h3 className="font-semibold text-white">Cover Letter</h3>
             </div>
-            <div className="custom-scrollbar max-h-[300px] overflow-y-auto pr-2">
-              <p className="whitespace-pre-wrap text-sm leading-8 text-slate-300">
-                {results.coverLetter || "No cover letter returned. Try another analysis."}
-              </p>
-            </div>
+            <button
+              type="button"
+              onClick={handleCopy}
+              disabled={!results.coverLetter}
+              className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-50 ${
+                copied
+                  ? "border-emerald-400/30 bg-emerald-400/15 text-emerald-400"
+                  : "border-white/15 bg-white/[0.05] text-white/60 hover:border-blue-400/30 hover:bg-blue-400/10 hover:text-blue-400"
+              }`}
+            >
+              {copied ? <BadgeCheck className="size-3.5" aria-hidden="true" /> : <Copy className="size-3.5" aria-hidden="true" />}
+              {copied ? "Copied!" : "Copy"}
+            </button>
           </div>
-        </TextCard>
+          <div className="cover-scroll max-h-72 overflow-y-auto">
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-white/75">
+              {results.coverLetter || "No cover letter returned. Try another analysis."}
+            </p>
+          </div>
+        </article>
 
-        <TextCard title="Final Improvement Checklist" icon={<ListChecks className="size-5" aria-hidden="true" />} delay={720}>
+        <TextCard title="Final Improvement Checklist" icon={<ListChecks className="size-5" aria-hidden="true" />} delayIndex={9}>
           {results.finalChecklist.length ? (
-            <ul className="space-y-3">
-              {results.finalChecklist.map((item) => {
-                const checked = checkedItems.has(item);
-
-                return (
-                  <li key={item}>
-                    <button
-                      type="button"
-                      onClick={() => toggleChecklistItem(item)}
-                      className="flex w-full gap-3 rounded-lg border border-white/10 bg-white/[0.04] p-3 text-left text-sm leading-6 text-slate-300 transition hover:border-cyan/25 hover:bg-white/[0.06]"
-                    >
-                      <span
-                        className={`mt-1 flex size-4 shrink-0 items-center justify-center rounded border transition ${
-                          checked ? "border-emerald-300 bg-emerald-300 text-night" : "border-white/25 bg-white/[0.03]"
-                        }`}
-                      >
-                        {checked ? <Check className="size-3" aria-hidden="true" /> : null}
-                      </span>
-                      <span className={`transition ${checked ? "text-slate-500 line-through" : ""}`}>{item}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+            <div className="space-y-2">
+              {results.finalChecklist.map((item, index) => (
+                <button
+                  key={`${item}-${index}`}
+                  type="button"
+                  onClick={() => toggleItem(index)}
+                  className="flex w-full cursor-pointer items-start gap-3 rounded-lg p-2 text-left transition-colors duration-200 hover:bg-white/[0.04]"
+                >
+                  <span
+                    className={`mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border transition-all duration-300 ${
+                      checkedItems[index]
+                        ? "border-emerald-400/50 bg-emerald-400/20"
+                        : "border-white/20 bg-white/[0.04]"
+                    }`}
+                  >
+                    {checkedItems[index] ? <Check className="size-3 text-emerald-400" aria-hidden="true" /> : null}
+                  </span>
+                  <span
+                    className={`text-sm transition-all duration-300 ${
+                      checkedItems[index] ? "text-white/35 line-through" : "text-white/75"
+                    }`}
+                  >
+                    {item}
+                  </span>
+                </button>
+              ))}
+            </div>
           ) : (
             <p className="text-sm text-slate-400">No checklist items returned.</p>
           )}
@@ -452,8 +499,11 @@ export default function ResultsDashboard({ results, onReset, resetIcon, notice }
       </div>
 
       <div className="mt-8">
-        <button type="button" onClick={onReset} className="primary-button shine-button w-full">
-          {resetIcon}
+        <button
+          type="button"
+          onClick={handleReset}
+          className="btn-shimmer mt-6 w-full rounded-2xl py-3.5 text-base font-semibold text-white transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_30px_rgba(96,165,250,0.3)]"
+        >
           Analyze Another Resume
         </button>
       </div>
