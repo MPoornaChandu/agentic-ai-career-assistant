@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, Bot, FileText, Loader2, RotateCcw, SendHorizontal, ShieldCheck } from "lucide-react";
+import { AlertCircle, Bot, FileText, RotateCcw, SendHorizontal, ShieldCheck } from "lucide-react";
 import { AGENT_LOADING_MESSAGES, DEMO_ANALYSIS, DEMO_ANALYSIS_NOTICE } from "@/lib/constants";
 import type { AnalysisResult } from "@/lib/types";
 import ResultsDashboard from "./ResultsDashboard";
@@ -71,8 +71,9 @@ export default function ResumeAnalyzer() {
   const analyzeDisabled = loading || cooldownRemaining > 0;
 
   const wordCountTone = useMemo(() => {
-    if (wordCount > MAX_WORDS) return "text-red-300";
-    if (wordCount > 0 && wordCount < MIN_WORDS) return "text-amber-300";
+    if (wordCount === 0) return "text-slate-400";
+    if (wordCount < MIN_WORDS || wordCount > MAX_WORDS) return "text-[#E24B4A]";
+    if (wordCount >= MIN_WORDS && wordCount <= MAX_WORDS) return "text-[#1D9E75]";
     return "text-slate-400";
   }, [wordCount]);
 
@@ -292,7 +293,7 @@ export default function ResumeAnalyzer() {
 
             <button type="submit" disabled={analyzeDisabled} className="primary-button w-full">
               {loading ? (
-                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                <span className="ai-spinner" aria-hidden="true" />
               ) : (
                 <SendHorizontal className="size-4" aria-hidden="true" />
               )}
@@ -319,6 +320,9 @@ export default function ResumeAnalyzer() {
               <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
               <span>{error}</span>
             </div>
+            <button type="submit" disabled={analyzeDisabled} className="secondary-button mt-4 border-red-300/20 bg-red-300/10 text-red-100 hover:border-red-300/40 hover:bg-red-300/15">
+              Retry
+            </button>
             {showDemoButton ? (
               <button type="button" onClick={showDemoAnalysis} className="secondary-button mt-4 border-amber-300/20 bg-amber-300/10 text-amber-100 hover:border-amber-300/40 hover:bg-amber-300/15">
                 View Demo Analysis
@@ -333,9 +337,11 @@ export default function ResumeAnalyzer() {
           <div className="glass-card flex items-center gap-3 rounded-lg p-4">
             <span className="surface-line" />
             <span className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-cyan/20 bg-cyan/10">
-              <Loader2 className="size-5 animate-spin text-cyan" aria-hidden="true" />
+              <span className="ai-spinner" aria-hidden="true" />
             </span>
-            <p className="text-sm font-medium text-slate-200">{currentAgentMessage}</p>
+            <p key={currentAgentMessage} className="animate-fade-up text-sm font-medium text-slate-200">
+              {currentAgentMessage}
+            </p>
           </div>
           <SkeletonCards />
         </div>

@@ -45,7 +45,9 @@ export default function FeatureCards() {
     <section id="features" className="section-shell section-reveal scroll-mt-24">
       <div className="mb-10 max-w-3xl">
         <span className="section-kicker">Features</span>
-        <h2 className="section-title">Everything a student needs to become internship-ready.</h2>
+        <h2 className="section-title">
+          Everything a student needs to become <span className="logo-gradient">internship-ready.</span>
+        </h2>
         <p className="section-copy">
           A focused MVP that feels like a premium AI workspace while staying simple, fast, and
           deployment-ready.
@@ -53,12 +55,16 @@ export default function FeatureCards() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {features.map((feature) => {
+        {features.map((feature, index) => {
           const Icon = feature.icon;
           return (
-            <article key={feature.title} className="glass-card glass-hover group overflow-hidden rounded-lg p-6">
+            <article
+              key={feature.title}
+              className="glass-card glass-hover reveal-card group overflow-hidden rounded-lg p-6"
+              style={{ "--reveal-delay": `${index * 80}ms` } as React.CSSProperties}
+            >
               <span className="surface-line opacity-70 transition group-hover:opacity-100" />
-              <div className="mb-5 flex size-12 items-center justify-center rounded-lg border border-cyan/20 bg-cyan/10 shadow-[0_0_28px_rgba(34,211,238,0.08)] transition group-hover:border-cyan/40 group-hover:bg-cyan/15">
+              <div className="mb-5 flex size-11 items-center justify-center rounded-xl border border-primary/20 bg-gradient-to-br from-primary/15 to-accent/15 shadow-[0_0_20px_rgba(96,165,250,0.15)] transition group-hover:border-primary/40">
                 <Icon className="size-6 text-cyan" aria-hidden="true" />
               </div>
               <h3 className="text-xl font-semibold text-white">{feature.title}</h3>

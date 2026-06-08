@@ -15,7 +15,7 @@ export default function Navbar() {
           <span className="flex size-9 items-center justify-center rounded-lg border border-cyan/30 bg-cyan/10 shadow-glow transition duration-300 group-hover:border-cyan/60 group-hover:bg-cyan/15">
             <Sparkles className="size-4 text-cyan" aria-hidden="true" />
           </span>
-          <span className="tracking-wide">Agentic Career</span>
+          <span className="logo-gradient tracking-wide">Agentic Career</span>
         </a>
 
         <div className="hidden items-center rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 md:flex">

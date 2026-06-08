@@ -3,7 +3,7 @@ import type { AnalysisResult } from "./types";
 export const AGENT_LOADING_MESSAGES = [
   "Resume Analyzer Agent is reading your resume...",
   "Skill Gap Agent is detecting missing skills...",
-  "Internship Matcher Agent is finding roles...",
+  "Internship Matcher Agent is finding the best roles...",
   "Project Advisor Agent is crafting suggestions...",
   "Roadmap Planner Agent is building your 30-day plan..."
 ];

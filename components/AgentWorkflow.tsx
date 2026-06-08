@@ -1,12 +1,14 @@
 import { AGENTS } from "@/lib/constants";
-import { ArrowDown, ArrowRight, Bot } from "lucide-react";
+import { ArrowDown, Bot } from "lucide-react";
 
 export default function AgentWorkflow() {
   return (
-    <section id="agents" className="section-shell section-reveal scroll-mt-24">
+    <section id="agents" className="section-shell section-reveal scroll-mt-24 bg-[linear-gradient(90deg,transparent,rgba(96,165,250,0.04),rgba(139,92,246,0.04),transparent)]">
       <div className="mx-auto mb-12 max-w-3xl text-center">
         <span className="section-kicker">Agents</span>
-        <h2 className="section-title">Multi-Agent Career Workflow</h2>
+        <h2 className="section-title">
+          Multi-Agent <span className="logo-gradient">Career Workflow</span>
+        </h2>
         <p className="section-copy mx-auto">
           Five specialized AI agents working in sequence to deliver your personalized career plan.
         </p>
@@ -16,13 +18,17 @@ export default function AgentWorkflow() {
         <div className="pointer-events-none absolute left-0 right-0 top-1/2 hidden h-px bg-gradient-to-r from-transparent via-cyan/30 to-transparent lg:block" aria-hidden="true" />
         {AGENTS.map((agent, index) => (
           <div key={agent.name} className="contents">
-            <article className="glass-card glass-hover group z-10 min-h-44 flex-1 rounded-lg p-5">
+            <article
+              className="glass-card glass-hover reveal-card group z-10 min-h-44 flex-1 rounded-lg p-5"
+              style={{ "--reveal-delay": `${index * 80}ms` } as React.CSSProperties}
+            >
               <span className="surface-line opacity-60 transition group-hover:opacity-100" />
               <div className="mb-5 flex items-start justify-between gap-4">
                 <span className="flex size-11 items-center justify-center rounded-lg border border-accent/20 bg-accent/15 shadow-[0_0_26px_rgba(139,92,246,0.08)]">
                   <Bot className="size-5 text-violet-200" aria-hidden="true" />
                 </span>
-                <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-xs font-medium text-emerald-200">
+                <span className="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-xs font-medium text-emerald-200">
+                  <span className="active-dot" aria-hidden="true" />
                   Active
                 </span>
               </div>
@@ -32,8 +38,8 @@ export default function AgentWorkflow() {
             {index < AGENTS.length - 1 ? (
               <div className="z-10 flex items-center justify-center text-cyan/70">
                 <ArrowDown className="size-5 lg:hidden" aria-hidden="true" />
-                <span className="hidden rounded-full border border-cyan/20 bg-night px-2 py-2 lg:block">
-                  <ArrowRight className="size-4" aria-hidden="true" />
+                <span className="flow-connector hidden rounded-full border border-cyan/20 bg-night px-3 py-2 text-base font-semibold lg:block">
+                  <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">→</span>
                 </span>
               </div>
             ) : null}
