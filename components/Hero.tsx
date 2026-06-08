@@ -61,9 +61,6 @@ function HeroCard() {
                 transform="rotate(-90 36 36)"
                 style={{ transition: "stroke-dashoffset 0.05s linear" }}
               />
-              <text x="36" y="41" textAnchor="middle" fontSize="18" fontWeight="600" fill="#ffffff">
-                {score}
-              </text>
             </svg>
           </div>
           <div>
